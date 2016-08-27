@@ -8,7 +8,7 @@ app.get('/', function (req, res) {
   res.send('Hello from Node Server!');
 });
 
-app.listen(3000, function () {
-  console.log('Node Server listening on port 3000!');
+app.listen(80, function () {
+  console.log('Node Server listening on port 80!');
 });
 
