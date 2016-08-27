@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Github User Commits - Live</title>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/angular.js/1.5.8/angular.min.js"></script>
+		<link rel="stylesheet" href="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+	</head>
+	<body style="background:#dff0d8" ng-app="app" ng-controller="RepoController">
+		
+		<div class="panel" align="center" style="margin:5%;background:#dff0d8;">
+			<div class="row">
+				<form name='git'>
+				<div class="form-group form-inline">
+					<input type="text" class="form-control" placeholder="Enter Github Username" ng-model="username" ng-minlength="3" required />
+					<button class="btn btn-default" type="button"  ng-click="getRepos();" ng-disabled='git.username.$invalid'> Get Commits ! </button>
+					<span>&nbsp;&nbsp;{{ticker}}</span>
+				</div>
+				</form>
+			</div>
+		</div>
+		
+	
+		<div class="panel" style="margin:2%"  ng-repeat="repo in repos">
+			<div class="row" style="margin:0;padding:1.5%;background:#F08080"> 
+				<div class="col-lg-9">Repository Name: {{ repo.name }}</div>
+				<div class="col-lg-3">Total Commits: {{repo.commitCount}}</div>
+			</div>
+			
+			<table class="table table-bordered" >
+				<tr class="danger">
+					<th>Comment</th>
+					<th>Time</th>
+					<th>Commiter</th>
+				</tr>
+				<tr ng-repeat="commit in repo.commits">
+					<td><a ng-href="{{commit.url}}">{{commit.title}}</a></td>
+					<td>{{commit.date}}</td>
+					<td>{{commit.email}}</td>
+				</tr>
+			</table>
+		</div>
+		<div>{{message}}</div>
+		
+		<script>
+			var app = angular.module('app', []);
+			
+			app.controller('RepoController', RepoController);
+			//app.service('RepoService', RepoService);
+
+
+			function RepoController($scope, $http, $interval, $filter) {
+				//alert("RepoController");
+				$scope.message="";
+				$scope.username = "";
+				$scope.repos = [];
+
+				$scope.repos[0] = {};
+				$scope.repos[0].name = "Test Repo 1";
+				$scope.repos[0].commitCount = 1;
+				$scope.repos[0].commits = [];
+				$scope.repos[0].commits[0] = {title: "/", url: "/", date: "25/08/2016", email: "annanya.red@gmail.com"};
+				
+				//alert(JSON.stringify($scope.repos));
+				
+
+				$scope.getRepos=function() {
+					//alert('getRepos');
+					$scope.message="loading...";
+					$scope.repos = [];
+					$http.get("https://api.github.com/users/"+$scope.username+"/repos")
+						.then(function(response) {
+							var repoArray = response.data;
+							//alert(JSON.stringify(response));
+							
+							angular.forEach(repoArray, function(item, index) {
+								//alert(index);
+								//alert(JSON.stringify(item));
+								$scope.repos[index] = {};
+								$scope.repos[index].name = item.name;
+								$scope.repos[index].commitCount = 0;					
+								$scope.repos[index].commits = [];
+								//$scope.repos[index].commits[0] = {url: "/", date: "25/08/2016", email: "annanya.red@gmail.com"};
+
+								$scope.getCommits(index);
+							});
+							//alert(JSON.stringify($scope.repos));
+						})
+						.catch(function(err) {
+							$scope.repos = [];
+							$scope.message="No such username found";
+							});						
+					
+					/* Start Polling for live update */
+					$scope.startPolling();
+				}
+
+
+				$scope.getCommits = function(repoIndex) {
+					var repoName = $scope.repos[repoIndex].name;
+					//alert(repoName);			
+					$scope.repos[repoIndex].commits = [];
+
+					$http.get("https://api.github.com/repos/"+$scope.username+"/"+repoName+"/commits")
+					.then(function(response) {
+						var commitArray = response.data;
+						//alert(JSON.stringify(commitArray));	
+
+						$scope.repos[repoIndex].commitCount = commitArray.length;						
+						angular.forEach(commitArray, function(item, index) {
+							//alert(index);
+							//alert(JSON.stringify(item));
+							$scope.repos[repoIndex].commits[index] = {
+								title: item.commit.message, 
+								url: item.commit.url, 
+								date: item.commit.committer.date, 
+								email: item.commit.committer.email
+							};
+
+						});
+						//alert(JSON.stringify($scope.repos[repoIndex]));
+					})
+					.catch(function(err) {
+						$scope.repos[repoIndex].commits = [];
+						$scope.message="Error fetching commit data";
+					});
+				}
+
+
+				//Initiate the Timer object.
+				$scope.timer = null;
+				$scope.ticks = 0;
+				$scope.PollingInterval = 30;
+	
+				//Timer start function.
+				$scope.startPolling = function () {
+					//Set the Timer start message.
+					$scope.ticks = 0;
+					$scope.ticker = "[: 0]";
+
+					//Initialize the Timer to run every 1000 milliseconds i.e. one second.
+					$scope.timer = $interval(function () {
+						//Display the current time.
+						var time = $filter('date')(new Date(), 'HH:mm:ss');
+						//$scope.message = "Timer Ticked. " + time;
+						$scope.ticker = "[: " + (++$scope.ticks) + "]";
+						if ($scope.ticks >= $scope.PollingInterval) {
+							$scope.stopPolling();
+							$scope.ticker = "[.....]";
+							$scope.getRepos();
+						}
+					}, 1000);
+					
+				};
+	
+				//Timer stop function.
+				$scope.stopPolling = function () {
+	
+					//Set the Timer stop message.
+					$scope.ticker = "";
+	
+					//Cancel the Timer.
+					if (angular.isDefined($scope.timer)) {
+						$interval.cancel($scope.timer);
+					}
+				};
+
+				$scope.$watch($scope.username, $scope.stopPolling);
+
+				
+
+			}
+
+
+			function RepoService($scope, $http) {}
+
+</script>
+	
+
+</body>
+</html>
+
